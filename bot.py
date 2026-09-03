@@ -10,7 +10,7 @@ TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 
 FILE_PATH = os.getenv('FILE_PATH', '/schedule.json')
 
-if not TELEGRAM_TOKEN or not YA_DISK_TOKEN:
+if not TELEGRAM_TOKEN:
     print("❌ Ошибка: не заданы TELEGRAM_TOKEN")
     exit(1)
 
