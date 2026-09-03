@@ -2,7 +2,7 @@ import os
 import datetime
 import json
 import logging
-from telegram import Update, BotCommand
+from telegram import Update, BotCommand, BotCommandScopeChat
 from telegram.ext import Application, CommandHandler, ContextTypes
 # ===== НАСТРОЙКИ =====
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
@@ -182,6 +182,17 @@ async def tomorrow(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = format_schedule(day_name, day_schedule, day_type)
 
     await update.message.reply_text(msg, parse_mode='Markdown')
+
+async def update_commands_for_user(app, update):
+    commands = [
+        ("start", "Показать приветствие"),
+        ("today", "Расписание на сегодня"),
+        # ... другие команды
+    ]
+    await app.bot.set_my_commands(
+        commands=commands,
+        scope=BotCommandScopeChat(chat_id=update.effective_chat.id)
+    )
 
 async def week(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Показывает краткое расписание на всю неделю."""
