@@ -8,10 +8,8 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 # ===== НАСТРОЙКИ =====
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 
-FILE_PATH = os.getenv('FILE_PATH', '/schedule.json')
-
 if not TELEGRAM_TOKEN:
-    print("❌ Ошибка: не заданы TELEGRAM_TOKEN")
+    print("❌ Ошибка: не задан TELEGRAM_TOKEN")
     exit(1)
 
 # ===== РАСПИСАНИЕ ВРЕМЕНИ =====
@@ -62,28 +60,50 @@ DAY_TYPE = {
     'сб': 'saturday'
 }
 
-# ===== РАБОТА С ЯНДЕКС.ДИСКОМ =====
-def get_schedule_from_yandex():
-    """Скачивает файл расписания с Яндекс.Диска и возвращает dict."""
+DAY_NAME_RU = {
+    'monday': 'ПН',
+    'tuesday': 'ВТ',
+    'wednesday': 'СР',
+    'thursday': 'ЧТ',
+    'friday': 'ПТ',
+    'saturday': 'СБ'
+}
+
+DAY_NAME_FULL = {
+    'monday': 'Понедельник',
+    'tuesday': 'Вторник',
+    'wednesday': 'Среда',
+    'thursday': 'Четверг',
+    'friday': 'Пятница',
+    'saturday': 'Суббота'
+}
+
+# ===== РАБОТА С РАСПИСАНИЕМ (локальный JSON) =====
+def get_schedule():
+    """Читает расписание из локального файла schedule.json."""
     try:
-        disk = YandexDisk(YA_DISK_TOKEN)
-        content = disk.download_file(FILE_PATH, stream=False)
-        data = json.loads(content)
-        return data
-    except Exception as e:
-        print(f"Ошибка загрузки с Яндекс.Диска: {e}")
+        with open('schedule.json', 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        print("❌ Файл schedule.json не найден")
+        return None
+    except json.JSONDecodeError:
+        print("❌ Ошибка в формате schedule.json")
         return None
 
-# ===== ФУНКЦИИ ДЛЯ РАБОТЫ С РАСПИСАНИЕМ =====
 def get_day_schedule(schedule, day_key):
+    """Возвращает расписание для конкретного дня."""
+    if not schedule:
+        return {}
     return schedule.get(day_key, {})
 
 def format_schedule(day_name, day_schedule, day_type_key):
+    """Форматирует расписание для отправки в Telegram."""
     if not day_schedule:
-        return f"📭 На {day_name} пар нет."
+        return f"📭 На {DAY_NAME_FULL.get(day_name, day_name)} пар нет."
 
     times = TIMES[day_type_key]
-    lines = [f"📚 **Расписание на {day_name}**", ""]
+    lines = [f"📚 **Расписание на {DAY_NAME_FULL.get(day_name, day_name)}**", ""]
 
     if day_type_key == 'monday':
         lines.append("🕗 **Классный час**: 8:00–8:30")
@@ -93,8 +113,10 @@ def format_schedule(day_name, day_schedule, day_type_key):
         pair_key = str(pair_num)
         if pair_key not in times:
             continue
+
         start, end = times[pair_key]
         info = day_schedule[pair_num]
+
         lines.append(f"**{pair_num} пара** ({start}–{end})")
         lines.append(f"📖 {info.get('subject', '—')}")
         lines.append(f"👨‍🏫 {info.get('teacher', '—')}")
@@ -104,57 +126,69 @@ def format_schedule(day_name, day_schedule, day_type_key):
     return "\n".join(lines)
 
 def get_day_key_by_name(day_name):
+    """Преобразует английское название дня в ключ (пн, вт, ...)."""
     return DAY_MAP.get(day_name.lower())
 
 # ===== ОБРАБОТЧИКИ КОМАНД =====
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Приветственное сообщение."""
     await update.message.reply_text(
         "👋 Привет! Я бот-расписание группы КСК-26-3\n\n"
-        "Команды:\n"
+        "📌 Команды:\n"
         "/today — расписание на сегодня\n"
         "/tomorrow — расписание на завтра\n"
-        "/week — расписание на неделю"
+        "/week — расписание на неделю\n"
+        "/day ПН — расписание на указанный день (пн, вт, ср, чт, пт, сб)"
     )
 
 async def today(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    schedule = get_schedule_from_yandex()
+    """Показывает расписание на сегодня."""
+    schedule = get_schedule()
     if not schedule:
-        await update.message.reply_text("❌ Не удалось загрузить расписание")
+        await update.message.reply_text("❌ Не удалось загрузить расписание. Проверь файл schedule.json")
         return
 
     now = datetime.datetime.now()
-    day_key = get_day_key_by_name(now.strftime("%A"))
+    day_name = now.strftime("%A").lower()
+    day_key = get_day_key_by_name(day_name)
+
     if not day_key:
         await update.message.reply_text("Сегодня выходной 🎉")
         return
 
     day_schedule = get_day_schedule(schedule, day_key)
     day_type = DAY_TYPE.get(day_key, 'tue_fri')
-    msg = format_schedule(now.strftime("%A"), day_schedule, day_type)
+    msg = format_schedule(day_name, day_schedule, day_type)
+
     await update.message.reply_text(msg, parse_mode='Markdown')
 
 async def tomorrow(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    schedule = get_schedule_from_yandex()
+    """Показывает расписание на завтра."""
+    schedule = get_schedule()
     if not schedule:
-        await update.message.reply_text("❌ Не удалось загрузить расписание")
+        await update.message.reply_text("❌ Не удалось загрузить расписание. Проверь файл schedule.json")
         return
 
     now = datetime.datetime.now()
     tomorrow_date = now + datetime.timedelta(days=1)
-    day_key = get_day_key_by_name(tomorrow_date.strftime("%A"))
+    day_name = tomorrow_date.strftime("%A").lower()
+    day_key = get_day_key_by_name(day_name)
+
     if not day_key:
         await update.message.reply_text("Завтра выходной 🎉")
         return
 
     day_schedule = get_day_schedule(schedule, day_key)
     day_type = DAY_TYPE.get(day_key, 'tue_fri')
-    msg = format_schedule(tomorrow_date.strftime("%A"), day_schedule, day_type)
+    msg = format_schedule(day_name, day_schedule, day_type)
+
     await update.message.reply_text(msg, parse_mode='Markdown')
 
 async def week(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    schedule = get_schedule_from_yandex()
+    """Показывает краткое расписание на всю неделю."""
+    schedule = get_schedule()
     if not schedule:
-        await update.message.reply_text("❌ Не удалось загрузить расписание")
+        await update.message.reply_text("❌ Не удалось загрузить расписание. Проверь файл schedule.json")
         return
 
     days_order = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
@@ -164,23 +198,66 @@ async def week(update: Update, context: ContextTypes.DEFAULT_TYPE):
         day_key = get_day_key_by_name(day)
         if not day_key:
             continue
+
         day_schedule = get_day_schedule(schedule, day_key)
-        day_name_ru = {
-            'monday': 'ПН',
-            'tuesday': 'ВТ',
-            'wednesday': 'СР',
-            'thursday': 'ЧТ',
-            'friday': 'ПТ',
-            'saturday': 'СБ'
-        }.get(day, day)
+        day_short = DAY_NAME_RU.get(day, day)
 
         if day_schedule:
-            pairs = [f"{p}. {info.get('subject', '—')}" for p, info in sorted(day_schedule.items())]
-            msg_lines.append(f"**{day_name_ru}**: " + ", ".join(pairs))
+            pairs = []
+            for p, info in sorted(day_schedule.items()):
+                pairs.append(f"{p}. {info.get('subject', '—')}")
+            msg_lines.append(f"**{day_short}**: " + ", ".join(pairs))
         else:
-            msg_lines.append(f"**{day_name_ru}**: пар нет")
+            msg_lines.append(f"**{day_short}**: пар нет")
 
     await update.message.reply_text("\n".join(msg_lines), parse_mode='Markdown')
+
+async def day(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Показывает расписание на указанный день (аргумент: пн, вт, ср, ...)."""
+    if not context.args:
+        await update.message.reply_text(
+            "❌ Укажи день недели.\n"
+            "Пример: `/day пн` или `/day понедельник`",
+            parse_mode='Markdown'
+        )
+        return
+
+    user_input = context.args[0].lower().strip()
+
+    # Сопоставляем ввод пользователя с ключами
+    day_mapping = {
+        'пн': 'пн', 'понедельник': 'пн',
+        'вт': 'вт', 'вторник': 'вт',
+        'ср': 'ср', 'среда': 'ср',
+        'чт': 'чт', 'четверг': 'чт',
+        'пт': 'пт', 'пятница': 'пт',
+        'сб': 'сб', 'суббота': 'сб'
+    }
+
+    day_key = day_mapping.get(user_input)
+    if not day_key:
+        await update.message.reply_text(
+            "❌ Неверный день. Доступные варианты: пн, вт, ср, чт, пт, сб"
+        )
+        return
+
+    schedule = get_schedule()
+    if not schedule:
+        await update.message.reply_text("❌ Не удалось загрузить расписание. Проверь файл schedule.json")
+        return
+
+    day_schedule = get_day_schedule(schedule, day_key)
+    day_type = DAY_TYPE.get(day_key, 'tue_fri')
+
+    # Находим английское название дня для форматирования
+    day_name_eng = None
+    for eng, ru in DAY_MAP.items():
+        if ru == day_key:
+            day_name_eng = eng
+            break
+
+    msg = format_schedule(day_name_eng or day_key, day_schedule, day_type)
+    await update.message.reply_text(msg, parse_mode='Markdown')
 
 # ===== ЗАПУСК БОТА =====
 def main():
@@ -190,6 +267,7 @@ def main():
     app.add_handler(CommandHandler("today", today))
     app.add_handler(CommandHandler("tomorrow", tomorrow))
     app.add_handler(CommandHandler("week", week))
+    app.add_handler(CommandHandler("day", day))
 
     print("✅ Бот запущен и работает...")
     app.run_polling()
