@@ -133,7 +133,7 @@ def get_day_key_by_name(day_name):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Приветственное сообщение."""
     await update.message.reply_text(
-        "👋 Привет! Я бот-расписание группы КСК-26-3\n\n"
+        " Привет. Я пидорас вашей группы\n\n"
         "📌 Команды:\n"
         "/today — расписание на сегодня\n"
         "/tomorrow — расписание на завтра\n"
