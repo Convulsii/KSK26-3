@@ -7,11 +7,11 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 
 # ===== НАСТРОЙКИ =====
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
-YA_DISK_TOKEN = os.getenv('YA_DISK_TOKEN')
+
 FILE_PATH = os.getenv('FILE_PATH', '/schedule.json')
 
 if not TELEGRAM_TOKEN or not YA_DISK_TOKEN:
-    print("❌ Ошибка: не заданы TELEGRAM_TOKEN или YA_DISK_TOKEN")
+    print("❌ Ошибка: не заданы TELEGRAM_TOKEN")
     exit(1)
 
 # ===== РАСПИСАНИЕ ВРЕМЕНИ =====
