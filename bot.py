@@ -5,13 +5,6 @@ import logging
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
-# Импортируем библиотеку для Яндекс.Диска
-try:
-    from pyandex_disk import YandexDisk
-except ImportError:
-    print("Установи pyandex-disk: pip install pyandex-disk")
-    exit(1)
-
 # ===== НАСТРОЙКИ =====
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 YA_DISK_TOKEN = os.getenv('YA_DISK_TOKEN')
