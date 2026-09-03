@@ -2,9 +2,8 @@ import os
 import datetime
 import json
 import logging
-from telegram import Update
+from telegram import Update, BotCommand
 from telegram.ext import Application, CommandHandler, ContextTypes
-
 # ===== НАСТРОЙКИ =====
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 
@@ -259,6 +258,15 @@ async def day(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = format_schedule(day_name_eng or day_key, day_schedule, day_type)
     await update.message.reply_text(msg, parse_mode='Markdown')
 
+async def set_commands(app):
+    commands = [
+        BotCommand("start", "Показать приветствие и список команд"),
+        BotCommand("today", "Расписание на сегодня"),
+        BotCommand("tomorrow", "Расписание на завтра"),
+        BotCommand("week", "Расписание на неделю"),
+        BotCommand("day", "Расписание на конкретный день (пн, вт, ср...)")
+    ]
+    await app.bot.set_my_commands(commands)
 # ===== ЗАПУСК БОТА =====
 def main():
     app = Application.builder().token(TELEGRAM_TOKEN).build()
