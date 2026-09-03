@@ -11,6 +11,13 @@ if not TELEGRAM_TOKEN:
     print("❌ Ошибка: не задан TELEGRAM_TOKEN")
     exit(1)
 
+os.environ['TZ'] = 'Asia/Yekaterinburg'
+try:
+    import time
+    time.tzset()  # Применяем смену часового пояса на Linux
+except AttributeError:
+    pass  # На Windows игнорируем
+
 # ===== РАСПИСАНИЕ ВРЕМЕНИ =====
 TIMES = {
     'monday': {
